@@ -1,0 +1,1161 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Classroom Task Shredder</title>
+    <style>
+        :root {
+            --bg-color: #eef2f5;
+            --card-color: #ffffff;
+            --text-color: #2c3e50;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --warning-color: #f1c40f;
+            --danger-color: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            color: var(--text-color);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        .workspace {
+            display: flex;
+            gap: 35px;
+            max-width: 1400px;
+            width: 100%;
+            align-items: flex-start;
+            box-sizing: border-box;
+        }
+
+        .container {
+            flex: 1.8;
+            background: var(--card-color);
+            padding: 50px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+        }
+
+        /* Fixed heights & absolute spacing to prevent layout shifts or zooming when displayed */
+        .timer-banner-wrapper {
+            min-height: 0px;
+            transition: min-height 0.3s ease;
+            margin-bottom: 0px;
+        }
+        
+        .timer-banner-wrapper.active {
+            min-height: 95px;
+            margin-bottom: 30px;
+        }
+
+        .timer-banner {
+            background: #2c3e50;
+            color: #ffffff;
+            padding: 20px 30px;
+            border-radius: 16px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            box-sizing: border-box;
+            height: 95px;
+        }
+
+        .timer-info {
+            display: flex;
+            flex-direction: column;
+            max-width: 65%;
+        }
+
+        .timer-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #bdc3c7;
+            margin-bottom: 4px;
+        }
+
+        .timer-task-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .timer-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .timer-display {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--warning-color);
+            background: #1a252f;
+            padding: 4px 15px;
+            border-radius: 8px;
+            min-width: 110px;
+            text-align: center;
+        }
+
+        .stop-early-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .stop-early-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .stop-early-btn:active {
+            transform: scale(0.95);
+        }
+
+        .sidebar {
+            flex: 1.2;
+            background: var(--card-color);
+            padding: 35px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+            position: sticky;
+            top: 40px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            color: var(--text-color);
+            font-size: 1.6rem;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 12px;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .badge-search-container {
+            margin-bottom: 15px;
+        }
+
+        .badge-search {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        .badge-search:focus {
+            border-color: var(--accent-color);
+        }
+
+        .badge-scroll-area {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .badge-scroll-area::-webkit-scrollbar {
+            width: 6px;
+        }
+        .badge-scroll-area::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .badge-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 14px;
+            border-radius: 12px;
+            text-align: left;
+            opacity: 0.35;
+            transition: all 0.3s ease;
+            filter: grayscale(100%);
+            border: 1px solid #e2e8f0;
+        }
+
+        .badge-item.unlocked {
+            opacity: 1;
+            filter: grayscale(0%);
+            background: #e8f8f0;
+            border: 1px solid var(--success-color);
+            box-shadow: 0 2px 8px rgba(46, 204, 113, 0.15);
+        }
+
+        .badge-icon {
+            font-size: 2rem;
+            background: #ffffff;
+            padding: 8px;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            box-sizing: border-box;
+        }
+
+        .badge-info {
+            flex-grow: 1;
+        }
+
+        .badge-info h4 {
+            margin: 0;
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
+        .badge-info p {
+            margin: 4px 0 0 0;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            line-height: 1.2;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent-color);
+            margin-top: 0;
+            font-size: 2.4rem;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.2rem;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 1.3rem;
+            text-align: center;
+        }
+
+        select {
+            width: 100%;
+            max-width: 800px;
+            padding: 18px;
+            border: 2px solid #bdc3c7;
+            border-radius: 12px;
+            font-size: 20px;
+            background-color: white;
+            text-align: center;
+            text-align-last: center;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            outline: none;
+        }
+
+        select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 12px rgba(52, 152, 219, 0.2);
+        }
+
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        button {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 18px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .checklist-section {
+            margin-top: 45px;
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.5s ease, max-height 0.8s ease;
+        }
+
+        .checklist-section.show {
+            opacity: 1;
+            max-height: 4000px;
+        }
+
+        .checklist-section h3 {
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 12px;
+            margin-bottom: 25px;
+            font-size: 1.4rem;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 6px solid var(--accent-color);
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.4s ease, transform 0.4s ease, background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .task-item:hover {
+            background: #f1f3f5;
+        }
+
+        .checklist-section.show .task-item {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .task-item.completed {
+            border-left-color: var(--success-color);
+            background: #e8f8f0;
+            opacity: 0.6;
+            transform: scale(0.99);
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: #7f8c8d;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 20px;
+            transform: scale(1.5);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        input[type="checkbox"]:hover {
+            transform: scale(1.6);
+        }
+
+        .task-text {
+            flex-grow: 1;
+            font-size: 18px;
+            line-height: 1.5;
+            transition: color 0.3s ease;
+        }
+
+        .time-tag {
+            background: #e1f0fa;
+            color: #2980b9;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            white-space: nowrap;
+            margin-left: 15px;
+        }
+
+        .victory-container {
+            display: none;
+            justify-content: center;
+            margin-top: 30px;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .victory-btn {
+            background-color: var(--success-color);
+            max-width: 400px;
+        }
+
+        .victory-btn:hover {
+            background-color: #27ae60;
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+
+        @media (max-width: 1100px) {
+            .workspace {
+                flex-direction: column;
+                align-items: center;
+            }
+            .sidebar {
+                width: 100%;
+                position: static;
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="workspace">
+    <div class="container" id="main-container">
+        <h1>📝 Classroom Task Shredder</h1>
+        <p class="subtitle">Big tasks are scary. Let's shred them into tiny, easy steps.</p>
+
+        <div class="timer-banner-wrapper" id="timer-banner-wrapper">
+            <div class="timer-banner" id="timer-banner">
+                <div class="timer-info">
+                    <span class="timer-label">Current Micro-Task Focus</span>
+                    <span class="timer-task-text" id="timer-task-title">Doing something awesome...</span>
+                </div>
+                <div class="timer-controls">
+                    <div class="timer-display" id="timer-countdown">00:00</div>
+                    <button class="stop-early-btn" id="timer-stop-btn">I'm Done! ✓</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="assignment-type">What do you want to work on?</label>
+            <select id="assignment-type">
+                <option value="" disabled selected>Choose an activity...</option>
+                <option value="essay">Write an Essay / Paper</option>
+                <option value="math">Math Worksheet / Problem Set</option>
+                <option value="reading">Textbook Reading Chapter</option>
+                <option value="presentation">Create a Presentation / Slideshow</option>
+                <option value="puzzle">Assemble a Large Puzzle</option>
+                <option value="language">Practice a New Language</option>
+                <option value="concept">Study a Complex Science Concept</option>
+                <option value="art">Start an Art / Drawing Project</option>
+                <option value="clean">Clean & Organize My Desk (Detailed)</option>
+                <option value="exam">Review & Study for a Big Exam</option>
+                <option value="coding">Write a Coding Script / Program</option>
+                <option value="exercise">Complete a Physical Workout Routine</option>
+                <option value="morning">Execute a Perfect Morning Routine</option>
+                <option value="backpack">Clean and Organize Backpack</option>
+                <option value="group_project">Plan a School Group Project</option>
+                <option value="science_lab">Write up a Science Lab Report</option>
+            </select>
+        </div>
+
+        <div class="btn-container">
+            <button onclick="shredAssignment()">Shred It! ⚡</button>
+        </div>
+
+        <div class="checklist-section" id="checklist-section">
+            <h3>Your Action Plan <span style="font-size:0.9rem; font-weight:normal; color:#7f8c8d;">(Click any task line to launch its automatic timer!)</span></h3>
+            <div id="checklist-container"></div>
+            
+            <div class="victory-container" id="victory-container">
+                <button class="victory-btn" onclick="triggerVictoryAnimation()">I Finished My Entire Task! 🎉</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <h2>Progress Hub</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span class="stat-number" id="shredded-count">0</span>
+                <span class="stat-label">Shreds</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-number" id="steps-count">0</span>
+                <span class="stat-label">Steps Done</span>
+            </div>
+        </div>
+        
+        <div class="stat-box" style="margin-bottom: 25px;">
+            <span class="stat-number" id="time-worked-display">0</span>
+            <span class="stat-label">Total Minutes Worked</span>
+        </div>
+
+        <h2>Badge Locker</h2>
+        <div class="badge-search-container">
+            <input type="text" id="badge-search-input" class="badge-search" placeholder="🔍 Search badges or conditions..." oninput="filterBadges()">
+        </div>
+
+        <div class="badge-scroll-area" id="badge-container">
+            <div class="badge-item" id="badge-time-5">
+                <div class="badge-icon">🥉</div>
+                <div class="badge-info">
+                    <h4>Five-Minute Warmup</h4>
+                    <p>How to earn: Log at least 5 total minutes of focused activity work.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-time-10">
+                <div class="badge-icon">⏱️</div>
+                <div class="badge-info">
+                    <h4>Double Digits</h4>
+                    <p>How to earn: Reach 10 total minutes spent on activities.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-time-20">
+                <div class="badge-icon">🥈</div>
+                <div class="badge-info">
+                    <h4>Focus Powerhouse</h4>
+                    <p>How to earn: Reach a total milestone of 20 minutes spent on activities.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-time-30">
+                <div class="badge-icon">⌛</div>
+                <div class="badge-info">
+                    <h4>Half-Hour Club</h4>
+                    <p>How to earn: Keep focus timers burning for 30 full minutes.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-time-40">
+                <div class="badge-icon">🥇</div>
+                <div class="badge-info">
+                    <h4>Master Productivity</h4>
+                    <p>How to earn: Complete a grand total of 40 minutes working on tasks.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-time-60">
+                <div class="badge-icon">💎</div>
+                <div class="badge-info">
+                    <h4>The Golden Hour</h4>
+                    <p>How to earn: Log a massive 60 total minutes of task execution.</p>
+                </div>
+            </div>
+
+            <div class="badge-item" id="badge-first-shred">
+                <div class="badge-icon">⚡</div>
+                <div class="badge-info">
+                    <h4>First Shred</h4>
+                    <p>How to earn: Click the "Shred It!" button for the very first time.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-super-shredder">
+                <div class="badge-icon">⚙️</div>
+                <div class="badge-info">
+                    <h4>Serial Shredder</h4>
+                    <p>How to earn: Generate 3 blueprints or activity plans.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-mega-shredder">
+                <div class="badge-icon">🚀</div>
+                <div class="badge-info">
+                    <h4>Blueprint Architect</h4>
+                    <p>How to earn: Generate 6 total activity blueprints.</p>
+                </div>
+            </div>
+
+            <div class="badge-item" id="badge-step-starter">
+                <div class="badge-icon">👣</div>
+                <div class="badge-info">
+                    <h4>First Step</h4>
+                    <p>How to earn: Complete your first micro-step on any checklist.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-step-master">
+                <div class="badge-icon">🔥</div>
+                <div class="badge-info">
+                    <h4>Step Crusher</h4>
+                    <p>How to earn: Check off 5 total sub-steps across your session.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-deep-focus">
+                <div class="badge-icon">🧠</div>
+                <div class="badge-info">
+                    <h4>Deep Focus</h4>
+                    <p>How to earn: Check off 12 total micro-steps across your session.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-centurion-steps">
+                <div class="badge-icon">👑</div>
+                <div class="badge-info">
+                    <h4>Task Obliterator</h4>
+                    <p>How to earn: Check off 20 total sub-steps.</p>
+                </div>
+            </div>
+
+            <div class="badge-item" id="badge-time-boxer">
+                <div class="badge-icon">⏳</div>
+                <div class="badge-info">
+                    <h4>Time Boxer</h4>
+                    <p>How to earn: Start any interactive micro-task countdown timer.</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-early-finisher">
+                <div class="badge-icon">🏃‍♂️</div>
+                <div class="badge-info">
+                    <h4>Early Bird</h4>
+                    <p>How to earn: Finish a timed micro-task early by clicking "I'm Done!".</p>
+                </div>
+            </div>
+
+            <div class="badge-item" id="badge-clean-desk">
+                <div class="badge-icon">✨</div>
+                <div class="badge-info">
+                    <h4>Zen Workspace</h4>
+                    <p>How to earn: Generate the Detailed Desk Cleaning action plan.</p>
+                </div>
+            </div>
+
+            <div class="badge-item" id="badge-grand-victory">
+                <div class="badge-icon">🏆</div>
+                <div class="badge-info">
+                    <h4>Grand Victory</h4>
+                    <p>How to earn: Finish every item on an entire action plan blueprint!</p>
+                </div>
+            </div>
+            <div class="badge-item" id="badge-unstoppable">
+                <div class="badge-icon">💥</div>
+                <div class="badge-info">
+                    <h4>Unstoppable</h4>
+                    <p>How to earn: Click the completion victory button to clear your goal.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Robust, predictable synthesizer architecture avoids random sounds
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        // Every button click maps explicitly to one unique sound case block
+        if (type === 'checkbox_check') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.06);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.06);
+        } else if (type === 'checkbox_uncheck') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        } else if (type === 'shred_button') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        } else if (type === 'timer_start') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        } else if (type === 'timer_done_natural') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+            osc.frequency.setValueAtTime(987.77, audioCtx.currentTime + 0.1); // B5
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else if (type === 'im_done_early') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(783.99, audioCtx.currentTime); // G5
+            osc.frequency.exponentialRampToValueAtTime(1318.51, audioCtx.currentTime + 0.12); // E6
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        } else if (type === 'alert_denied') {
+            // Low error indicator buzzer tone
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(130, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        } else if (type === 'victory_grand') {
+            const notes = [523.25, 659.25, 783.99, 1046.50]; 
+            notes.forEach((freq, index) => {
+                const subOsc = audioCtx.createOscillator();
+                const subGain = audioCtx.createGain();
+                subOsc.connect(subGain);
+                subGain.connect(audioCtx.destination);
+                subOsc.type = 'sine';
+                subOsc.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * 0.08));
+                subGain.gain.setValueAtTime(0.15, audioCtx.currentTime + (index * 0.08));
+                subGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (index * 0.08) + 0.4);
+                subOsc.start(audioCtx.currentTime + (index * 0.08));
+                subOsc.stop(audioCtx.currentTime + (index * 0.08) + 0.4);
+            });
+        }
+    }
+
+    const assignmentBlueprints = {
+        essay: [
+            { text: "Open your Google Doc/Word file and type just the Title", time: "2 min" },
+            { text: "Find 2 sources or quotes from your notes/internet", time: "10 min" },
+            { text: "Write just 3 bullet points for your introduction", time: "5 min" },
+            { text: "Write Paragraph 1 (Don't worry if it's perfect, just type!)", time: "15 min" },
+            { text: "Take a 2-minute stretch break", time: "2 min" },
+            { text: "Write Paragraph 2", time: "15 min" },
+            { text: "Write Paragraph 3", time: "15 min" },
+            { text: "Write a 2-sentence conclusion", time: "5 min" },
+            { text: "Read it over once to fix spelling", time: "5 min" }
+        ],
+        math: [
+            { text: "Clear your desk and grab a pencil, scratch paper, and calculator", time: "2 min" },
+            { text: "Look at the first problem and write down the formula you need", time: "3 min" },
+            { text: "Solve problems 1 through 3", time: "10 min" },
+            { text: "Solve problems 4 through 6", time: "10 min" },
+            { text: "Stand up and do 5 jumping jacks (Brain break!)", time: "1 min" },
+            { text: "Solve the remaining problems", time: "15 min" },
+            { text: "Double-check your math operations with a calculator", time: "5 min" }
+        ],
+        reading: [
+            { text: "Find a quiet space and open the textbook to the page", time: "1 min" },
+            { text: "Read only the bold headings and look at the pictures in the chapter", time: "3 min" },
+            { text: "Read the first 2 pages", time: "7 min" },
+            { text: "Write down 2 key vocabulary words you saw", time: "3 min" },
+            { text: "Read the next 3 pages", time: "10 min" },
+            { text: "Write down 1 main idea from what you just read", time: "3 min" },
+            { text: "Read the final pages of the chapter", time: "8 min" }
+        ],
+        presentation: [
+            { text: "Open Google Slides or PowerPoint and pick a simple theme", time: "3 min" },
+            { text: "Make Slide 1: Title and your name", time: "2 min" },
+            { text: "Type the layout headers for Slides 2, 3, and 4 (blank slides for now)", time: "5 min" },
+            { text: "Fill in the information for Slide 2", time: "10 min" },
+            { text: "Fill in the information for Slide 3", time: "10 min" },
+            { text: "Take a quick sip of water break", time: "1 min" },
+            { text: "Fill in the information for Slide 4", time: "10 min" },
+            { text: "Add 1 image or graphic to each slide", time: "5 min" }
+        ],
+        puzzle: [
+            { text: "Empty the puzzle box onto a large, flat surface", time: "3 min" },
+            { text: "Flip all puzzle pieces right-side up", time: "10 min" },
+            { text: "Find and separate all the straight outer edge pieces", time: "10 min" },
+            { text: "Assemble the entire outside border frame", time: "15 min" },
+            { text: "Sort the remaining inner pieces by distinct colors or patterns", time: "10 min" },
+            { text: "Pick one specific object or color block to assemble first", time: "15 min" }
+        ],
+        language: [
+            { text: "Open your language app or flashcards to today's lesson", time: "1 min" },
+            { text: "Review 5 old vocabulary words to warm up your memory", time: "4 min" },
+            { text: "Learn and practice 5 brand new words or phrases", time: "8 min" },
+            { text: "Speak the new phrases out loud 3 times each to practice pronunciation", time: "3 min" },
+            { text: "Write down two custom sentences using the new vocabulary", time: "5 min" },
+            { text: "Do a quick 2-minute review quiz to lock it in", time: "2 min" }
+        ],
+        concept: [
+            { text: "Write the name of the scientific concept in the center of a blank paper", time: "1 min" },
+            { text: "Watch a short overview video or read a summary paragraph about it", time: "5 min" },
+            { text: "Identify and write down the 3 most important key terms", time: "5 min" },
+            { text: "Draw a simple diagram or mind-map connecting the terms together", time: "10 min" },
+            { text: "Try to explain the concept out loud in your own words as if teaching a friend", time: "5 min" },
+            { text: "Write down 1 question you still have about how it works", time: "2 min" }
+        ],
+        art: [
+            { text: "Gather your canvas, paper, pencils, or paints and clean your space", time: "3 min" },
+            { text: "Lightly sketch out the basic shapes and composition with a light pencil", time: "10 min" },
+            { text: "Step back, look at the proportions, and fix any rough lines", time: "4 min" },
+            { text: "Apply your base colors or initial shading layers", time: "20 min" },
+            { text: "Take a quick break to rest your eyes", time: "3 min" },
+            { text: "Add finer details, dark shadows, and highlights", time: "20 min" }
+        ],
+        clean: [
+            { text: "Take all loose items off the desk and place them on your bed temporarily", time: "3 min" },
+            { text: "Pick up all trash, old worksheets, or candy wrappers and throw them away", time: "2 min" },
+            { text: "Spray down the empty desk surface or use a damp wipe to scrub away dust", time: "3 min" },
+            { text: "Use a dry cloth or paper towel to completely dry the desk surface", time: "2 min" },
+            { text: "Sort through your temporary pile and place loose papers into binders", time: "5 min" },
+            { text: "Carefully place only your computer, lamp, and active notebook back on the desk", time: "4 min" },
+            { text: "Put pens and pencils neatly inside a desk cup or drawer tray", time: "2 min" }
+        ],
+        exam: [
+            { text: "Find the syllabus or test study guide sheet", time: "2 min" },
+            { text: "Gather all relevant notes, past quizzes, and a blank notebook", time: "3 min" },
+            { text: "Spend time reading through the most important topic highlights", time: "15 min" },
+            { text: "Write down a custom 5-question mock test based on your notes", time: "10 min" },
+            { text: "Close your notes and try to answer those 5 questions from memory", time: "15 min" },
+            { text: "Open your notes and grade your answers to see what needs more practice", time: "5 min" }
+        ],
+        coding: [
+            { text: "Read the prompt carefully and write down inputs & outputs needed", time: "3 min" },
+            { text: "Write pseudo-code out on plain scratch paper first line by line", time: "5 min" },
+            { text: "Declare major working variables and scaffolding architecture structures", time: "4 min" },
+            { text: "Write core engine algorithm loop mechanics logic control systems", time: "15 min" },
+            { text: "Run compile checks and debug initial trace error returns manually", time: "10 min" },
+            { text: "Refactor messy execution components and insert clarifying documentation comments", time: "6 min" }
+        ],
+        exercise: [
+            { text: "Change into athletic clothes, tie your sneakers, pull up music tracks", time: "4 min" },
+            { text: "Execute dynamic joint rotations and target warm-up limbering stretches", time: "5 min" },
+            { text: "Perform Circuit 1 major physical exertion exercises set targets", time: "12 min" },
+            { text: "Hydrate and rest deeply without staring at phone apps", time: "2 min" },
+            { text: "Perform Circuit 2 secondary helper isometric stability sequences", time: "12 min" },
+            { text: "Settle heart-rates back down safely through static deep cooling extensions", time: "5 min" }
+        ],
+        morning: [
+            { text: "Sit up instantly, drink a glass of water immediately upon awakening", time: "1 min" },
+            { text: "Pull bedsheets taut and throw pillows clean to lock spatial order state", time: "2 min" },
+            { text: "Wash face thoroughly, brush teeth up to safety baseline parameters", time: "4 min" },
+            { text: "Review active calendar priorities for tracking daily output maps", time: "3 min" },
+            { text: "Consume energy-dense nutrition food fuels while prepping bags", time: "15 min" }
+        ],
+        backpack: [
+            { text: "Unzip every single pocket of your backpack completely", time: "2 min" },
+            { text: "Turn it upside down over a garbage can to shake out crumbs and debris", time: "1 min" },
+            { text: "Sort all loose papers into chronological order within binders or folders", time: "8 min" },
+            { text: "Test all loose pens/markers; throw away dried out ones, pack remaining in pencil case", time: "4 min" },
+            { text: "Pack textbooks and heavy folders in the back closest to strap spine layer", time: "3 min" },
+            { text: "Place minor tools (keys, ID card, wallet) into designated small secure zipper slots", time: "2 min" }
+        ],
+        group_project: [
+            { text: "Create a shared online document or presentation workspace and invite all partners", time: "4 min" },
+            { text: "Brainstorm project scope options and pick one final mutually agreed idea", time: "10 min" },
+            { text: "Divide the work plan evenly into distinct clear roles per participant", time: "8 min" },
+            { text: "Set internal tracking checkpoints milestones dates before final teacher deadline", time: "5 min" },
+            { text: "Write down contact system info rules for team updates communication loops", time: "3 min" }
+        ],
+        science_lab: [
+            { text: "Write down the formal experimental objective Title and Hypothesis parameters", time: "5 min" },
+            { text: "List every raw material and hardware tool item element utilized in execution", time: "4 min" },
+            { text: "Transcribe the chronological methodology steps followed in real-time execution", time: "10 min" },
+            { text: "Organize raw measurements collection datasets into structured table rows layouts", time: "15 min" },
+            { text: "Draft summary observations explaining logical connections patterns to core course theory", time: "15 min" }
+        ]
+    };
+
+    let shreddedCount = 0;
+    let globalStepsCompleted = 0;
+    let totalSecondsWorked = 0;
+    let currentTimerInterval = null;
+    let currentActiveCheckbox = null;
+    let currentActiveTaskDiv = null;
+
+    function shredAssignment() {
+        // Intercept action if a countdown interval is ticking
+        if (currentTimerInterval) {
+            playSound('alert_denied');
+            alert("A task focus timer is currently running! You must finish or click 'I'm Done!' before switching tasks or generating new blueprints.");
+            return;
+        }
+
+        const selectElement = document.getElementById('assignment-type');
+        const selectedValue = selectElement.value;
+        const checklistSection = document.getElementById('checklist-section');
+        const checklistContainer = document.getElementById('checklist-container');
+        const victoryContainer = document.getElementById('victory-container');
+
+        if (!selectedValue) {
+            alert("Please select an activity type first!");
+            return;
+        }
+
+        playSound('shred_button');
+        
+        shreddedCount++;
+        document.getElementById('shredded-count').innerText = shreddedCount;
+        
+        // Badge Verification Passes
+        if (shreddedCount >= 1) document.getElementById('badge-first-shred').classList.add('unlocked');
+        if (shreddedCount >= 3) document.getElementById('badge-super-shredder').classList.add('unlocked');
+        if (shreddedCount >= 6) document.getElementById('badge-mega-shredder').classList.add('unlocked');
+        if (selectedValue === 'clean') document.getElementById('badge-clean-desk').classList.add('unlocked');
+
+        checklistSection.classList.remove('show');
+        victoryContainer.style.display = 'none';
+        checklistContainer.innerHTML = '';
+
+        const tasks = assignmentBlueprints[selectedValue];
+
+        tasks.forEach((task, index) => {
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-item';
+            taskDiv.style.transitionDelay = `${index * 70}ms`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'task-checkbox';
+            
+            checkbox.onclick = function(e) {
+                e.stopPropagation(); 
+                toggleTaskState(checkbox, taskDiv);
+            };
+
+            taskDiv.onclick = function() {
+                if (currentTimerInterval) {
+                    playSound('alert_denied');
+                    alert("A task focus timer is already running! Finish it first or tap 'I'm Done!'.");
+                    return;
+                }
+                if (!checkbox.checked) {
+                    startFocusTimer(task.text, task.time, checkbox, taskDiv);
+                }
+            };
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'task-text';
+            textSpan.innerText = task.text;
+
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'time-tag';
+            timeSpan.innerText = task.time;
+
+            taskDiv.appendChild(checkbox);
+            taskDiv.appendChild(textSpan);
+            taskDiv.appendChild(timeSpan);
+            checklistContainer.appendChild(taskDiv);
+        });
+
+        setTimeout(() => {
+            checklistSection.classList.add('show');
+        }, 50);
+    }
+
+    function toggleTaskState(checkbox, taskDiv) {
+        if (checkbox.checked) {
+            playSound('checkbox_check');
+            taskDiv.classList.add('completed');
+            globalStepsCompleted++;
+            
+            if (currentActiveCheckbox === checkbox) {
+                resetFocusTimer();
+            }
+        } else {
+            playSound('checkbox_uncheck');
+            taskDiv.classList.remove('completed');
+            globalStepsCompleted = Math.max(0, globalStepsCompleted - 1);
+        }
+        
+        document.getElementById('steps-count').innerText = globalStepsCompleted;
+        
+        if (globalStepsCompleted >= 1) document.getElementById('badge-step-starter').classList.add('unlocked');
+        if (globalStepsCompleted >= 5) document.getElementById('badge-step-master').classList.add('unlocked');
+        if (globalStepsCompleted >= 12) document.getElementById('badge-deep-focus').classList.add('unlocked');
+        if (globalStepsCompleted >= 20) document.getElementById('badge-centurion-steps').classList.add('unlocked');
+        
+        checkCompletionStatus();
+    }
+
+    function startFocusTimer(text, timeStr, checkbox, taskDiv) {
+        playSound('timer_start');
+        document.getElementById('badge-time-boxer').classList.add('unlocked');
+
+        currentActiveCheckbox = checkbox;
+        currentActiveTaskDiv = taskDiv;
+
+        const minutes = parseInt(timeStr);
+        let totalSeconds = minutes * 60;
+
+        const wrapper = document.getElementById('timer-banner-wrapper');
+        const timerBanner = document.getElementById('timer-banner');
+        const timerTitle = document.getElementById('timer-task-title');
+        const timerCountdown = document.getElementById('timer-countdown');
+
+        timerTitle.innerText = text;
+        
+        // Show components smoothly without resizing outer layouts or changing page scaling scale rules
+        wrapper.classList.add('active');
+        timerBanner.style.display = 'flex';
+
+        function updateDisplay() {
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            timerCountdown.innerText = `${m}:${s}`;
+        }
+
+        updateDisplay();
+
+        currentTimerInterval = setInterval(() => {
+            totalSeconds--;
+            totalSecondsWorked++;
+            
+            updateGlobalTimeMetrics();
+
+            if (totalSeconds <= 0) {
+                clearInterval(currentTimerInterval);
+                timerCountdown.innerText = "00:00";
+                playSound('timer_done_natural');
+                if (currentActiveCheckbox && !currentActiveCheckbox.checked) {
+                    currentActiveCheckbox.checked = true;
+                    toggleTaskState(currentActiveCheckbox, currentActiveTaskDiv);
+                }
+                setTimeout(resetFocusTimer, 1500);
+            } else {
+                updateDisplay();
+            }
+        }, 1000);
+    }
+
+    function updateGlobalTimeMetrics() {
+        const totalMinutes = Math.floor(totalSecondsWorked / 60);
+        document.getElementById('time-worked-display').innerText = totalMinutes;
+
+        if (totalMinutes >= 5) document.getElementById('badge-time-5').classList.add('unlocked');
+        if (totalMinutes >= 10) document.getElementById('badge-time-10').classList.add('unlocked');
+        if (totalMinutes >= 20) document.getElementById('badge-time-20').classList.add('unlocked');
+        if (totalMinutes >= 30) document.getElementById('badge-time-30').classList.add('unlocked');
+        if (totalMinutes >= 40) document.getElementById('badge-time-40').classList.add('unlocked');
+        if (totalMinutes >= 60) document.getElementById('badge-time-60').classList.add('unlocked');
+    }
+
+    function resetFocusTimer() {
+        if (currentTimerInterval) {
+            clearInterval(currentTimerInterval);
+            currentTimerInterval = null;
+        }
+        document.getElementById('timer-banner-wrapper').classList.remove('active');
+        document.getElementById('timer-banner').style.display = 'none';
+        currentActiveCheckbox = null;
+        currentActiveTaskDiv = null;
+    }
+
+    document.getElementById('timer-stop-btn').onclick = function() {
+        playSound('im_done_early');
+        document.getElementById('badge-early-finisher').classList.add('unlocked');
+        if (currentActiveCheckbox && !currentActiveCheckbox.checked) {
+            currentActiveCheckbox.checked = true;
+            toggleTaskState(currentActiveCheckbox, currentActiveTaskDiv);
+        }
+        resetFocusTimer();
+    };
+
+    function checkCompletionStatus() {
+        const totalCheckboxes = document.querySelectorAll('.task-checkbox');
+        const checkedCheckboxes = document.querySelectorAll('.task-checkbox:checked');
+        const victoryContainer = document.getElementById('victory-container');
+
+        if (totalCheckboxes.length > 0 && totalCheckboxes.length === checkedCheckboxes.length) {
+            victoryContainer.style.display = 'flex';
+            document.getElementById('badge-grand-victory').classList.add('unlocked');
+        } else {
+            victoryContainer.style.display = 'none';
+        }
+    }
+
+    function triggerVictoryAnimation() {
+        playSound('victory_grand');
+        document.getElementById('badge-unstoppable').classList.add('unlocked');
+
+        const colors = ['#3498db', '#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c'];
+        for (let i = 0; i < 100; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.transform = `scale(${Math.random() * 1 + 0.5})`;
+            
+            const duration = Math.random() * 2 + 2; 
+            confetti.style.animationDuration = duration + 's';
+            confetti.style.animationDelay = Math.random() * 0.5 + 's';
+
+            document.body.appendChild(confetti);
+            setTimeout(() => { confetti.remove(); }, (duration + 0.5) * 1000);
+        }
+    }
+
+    function filterBadges() {
+        const query = document.getElementById('badge-search-input').value.toLowerCase();
+        const badges = document.querySelectorAll('.badge-item');
+
+        badges.forEach(badge => {
+            const title = badge.querySelector('h4').innerText.toLowerCase();
+            const desc = badge.querySelector('p').innerText.toLowerCase();
+            if (title.includes(query) || desc.includes(query)) {
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
+
+```
