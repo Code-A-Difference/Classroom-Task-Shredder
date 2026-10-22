@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -468,6 +467,15 @@
                 max-height: none;
             }
         }
+    
+        /* Allow the extra controls to wrap on smaller screens. */
+        .timer-banner { height: auto; min-height: 95px; box-sizing: border-box; flex-wrap: wrap; gap: 16px; }
+        .timer-info { max-width: 100%; min-width: 0; flex: 1 1 240px; }
+        .timer-task-text { white-space: normal; overflow-wrap: anywhere; }
+        .timer-controls { flex-wrap: wrap; gap: 10px; }
+        #timer-pause-btn { background: #21618c; }
+        #timer-remove-btn { background: #566573; }
+        .timer-controls button:focus-visible { outline: 3px solid #f1c40f; outline-offset: 3px; }
     </style>
 </head>
 <body>
@@ -484,7 +492,10 @@
                     <span class="timer-task-text" id="timer-task-title">Doing something awesome...</span>
                 </div>
                 <div class="timer-controls">
-                    <div class="timer-display" id="timer-countdown">00:00</div>
+                    <div class="timer-display" id="timer-countdown" role="timer" aria-label="Time remaining">00:00</div>
+                    <span id="timer-status" role="status">Running</span>
+                    <button type="button" class="stop-early-btn" id="timer-pause-btn">Pause</button>
+                    <button type="button" class="stop-early-btn" id="timer-remove-btn" title="Remove timer without completing the task">Remove timer</button>
                     <button class="stop-early-btn" id="timer-stop-btn">I'm Done! ✓</button>
                 </div>
             </div>
@@ -918,10 +929,10 @@
     let currentActiveTaskDiv = null;
 
     function shredAssignment() {
-        // Intercept action if a countdown interval is ticking
-        if (currentTimerInterval) {
+        // Keep the current task reserved while running or paused.
+        if (currentActiveCheckbox) {
             playSound('alert_denied');
-            alert("A task focus timer is currently running! You must finish or click 'I'm Done!' before switching tasks or generating new blueprints.");
+            alert("A timer is running or paused. Finish the task or use Remove timer before generating a new plan.");
             return;
         }
 
@@ -968,9 +979,9 @@
             };
 
             taskDiv.onclick = function() {
-                if (currentTimerInterval) {
+                if (currentActiveCheckbox) {
                     playSound('alert_denied');
-                    alert("A task focus timer is already running! Finish it first or tap 'I'm Done!'.");
+                    alert("A timer is running or paused. Finish the task or use Remove timer before starting another.");
                     return;
                 }
                 if (!checkbox.checked) {
@@ -1022,55 +1033,79 @@
         checkCompletionStatus();
     }
 
+    let timerRemainingMs = 0;
+    let timerLastTick = null;
+
+    function updateTimerDisplay() {
+        const seconds = Math.ceil(timerRemainingMs / 1000);
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        document.getElementById('timer-countdown').innerText = `${m}:${s}`;
+    }
+
+    // Account for actual active time, including fractions of a second.
+    function accountTimerTime() {
+        if (timerLastTick === null) return;
+        const now = performance.now();
+        const elapsed = Math.min(Math.max(0, now - timerLastTick), timerRemainingMs);
+        timerLastTick = now;
+        timerRemainingMs -= elapsed;
+        totalSecondsWorked += elapsed / 1000;
+        updateGlobalTimeMetrics();
+        updateTimerDisplay();
+    }
+
+    function tickFocusTimer() {
+        accountTimerTime();
+        if (currentActiveCheckbox && timerRemainingMs <= 0) {
+            playSound('timer_done_natural');
+            currentActiveCheckbox.checked = true;
+            toggleTaskState(currentActiveCheckbox, currentActiveTaskDiv);
+        }
+    }
+
+    function resumeFocusTimer() {
+        if (!currentActiveCheckbox || currentTimerInterval !== null) return;
+        timerLastTick = performance.now();
+        currentTimerInterval = setInterval(tickFocusTimer, 250);
+        document.getElementById('timer-pause-btn').innerText = 'Pause';
+        document.getElementById('timer-status').innerText = 'Running';
+    }
+
+    function pauseFocusTimer() {
+        if (!currentActiveCheckbox || currentTimerInterval === null) return;
+        tickFocusTimer();
+        if (!currentActiveCheckbox) return;
+        clearInterval(currentTimerInterval);
+        currentTimerInterval = null;
+        timerLastTick = null;
+        document.getElementById('timer-pause-btn').innerText = 'Resume';
+        document.getElementById('timer-status').innerText = 'Paused';
+    }
+
     function startFocusTimer(text, timeStr, checkbox, taskDiv) {
+        if (currentActiveCheckbox) return;
         playSound('timer_start');
         document.getElementById('badge-time-boxer').classList.add('unlocked');
-
         currentActiveCheckbox = checkbox;
         currentActiveTaskDiv = taskDiv;
-
-        const minutes = parseInt(timeStr);
-        let totalSeconds = minutes * 60;
-
-        const wrapper = document.getElementById('timer-banner-wrapper');
-        const timerBanner = document.getElementById('timer-banner');
-        const timerTitle = document.getElementById('timer-task-title');
-        const timerCountdown = document.getElementById('timer-countdown');
-
-        timerTitle.innerText = text;
-        
-        // Show components smoothly without resizing outer layouts or changing page scaling scale rules
-        wrapper.classList.add('active');
-        timerBanner.style.display = 'flex';
-
-        function updateDisplay() {
-            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-            const s = (totalSeconds % 60).toString().padStart(2, '0');
-            timerCountdown.innerText = `${m}:${s}`;
-        }
-
-        updateDisplay();
-
-        currentTimerInterval = setInterval(() => {
-            totalSeconds--;
-            totalSecondsWorked++;
-            
-            updateGlobalTimeMetrics();
-
-            if (totalSeconds <= 0) {
-                clearInterval(currentTimerInterval);
-                timerCountdown.innerText = "00:00";
-                playSound('timer_done_natural');
-                if (currentActiveCheckbox && !currentActiveCheckbox.checked) {
-                    currentActiveCheckbox.checked = true;
-                    toggleTaskState(currentActiveCheckbox, currentActiveTaskDiv);
-                }
-                setTimeout(resetFocusTimer, 1500);
-            } else {
-                updateDisplay();
-            }
-        }, 1000);
+        timerRemainingMs = parseInt(timeStr, 10) * 60 * 1000;
+        document.getElementById('timer-task-title').innerText = text;
+        document.getElementById('timer-banner-wrapper').classList.add('active');
+        document.getElementById('timer-banner').style.display = 'flex';
+        updateTimerDisplay();
+        resumeFocusTimer();
     }
+
+    document.getElementById('timer-pause-btn').onclick = function() {
+        if (currentTimerInterval === null) resumeFocusTimer();
+        else pauseFocusTimer();
+    };
+
+    // Removing a timer preserves time already worked and leaves its task unchecked.
+    document.getElementById('timer-remove-btn').onclick = function() {
+        resetFocusTimer();
+    };
 
     function updateGlobalTimeMetrics() {
         const totalMinutes = Math.floor(totalSecondsWorked / 60);
@@ -1085,10 +1120,13 @@
     }
 
     function resetFocusTimer() {
-        if (currentTimerInterval) {
+        accountTimerTime();
+        if (currentTimerInterval !== null) {
             clearInterval(currentTimerInterval);
             currentTimerInterval = null;
         }
+        timerLastTick = null;
+        timerRemainingMs = 0;
         document.getElementById('timer-banner-wrapper').classList.remove('active');
         document.getElementById('timer-banner').style.display = 'none';
         currentActiveCheckbox = null;
@@ -1158,4 +1196,3 @@
 </body>
 </html>
 
-```
